@@ -65,7 +65,7 @@ if __name__ == "__main__":
         opt.baseroot = './DIV2K_valid_HR/'
         print('Debug mode OFF. ')
     else:
-        opt.baseroot = './valid_temp_test/'
+        opt.baseroot = './valid_temp_test/' # put 1 image in this directory to debug
         opt.crop_randomly = False
         print('Debug mode ON! ')
 
