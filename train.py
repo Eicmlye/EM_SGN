@@ -100,8 +100,11 @@ if __name__ == "__main__":
     opt.loss_function = 'MSE'
 
     ## if you are gonna continue train pre-trained model, activate this block
+    """ # comment this line to activate the block below
     opt.pre_train = False
     opt.load_name = './RunLocal/DataSaved/230114_0016_train/SGN_epoch1000_bs8_mu0_sigma30.pth'
+    
+    #"""
     
     # create time-based directory name
     begin_time = time.localtime(time.time())

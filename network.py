@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import PixelUnShuffle
+## EM COMMENT: official implementation has been provided by PyTorch
+## so no longer need PixelUnshuffle.py here.
+## See https://github.com/fangwei123456/PixelUnshuffle-pytorch for PixelUnShuffle.py
+## See https://github.com/pytorch/pytorch/issues/2456 for PyTorch pixel_unshuffle request
+## EM deactivated # import PixelUnShuffle
 from network_module import *
 
 # ----------------------------------------
@@ -68,9 +72,9 @@ class SGN(nn.Module):
 
     def forward(self, x):
         # PixelUnShuffle                                        input: batch * 3 * 256 * 256
-        x1 = PixelUnShuffle.pixel_unshuffle(x, 2)               # out: batch * 12 * 128 * 128
-        x2 = PixelUnShuffle.pixel_unshuffle(x, 4)               # out: batch * 48 * 64 * 64
-        x3 = PixelUnShuffle.pixel_unshuffle(x, 8)               # out: batch * 192 * 32 * 32
+        x1 = F.pixel_unshuffle(x, 2)                            # out: batch * 12 * 128 * 128
+        x2 = F.pixel_unshuffle(x, 4)                            # out: batch * 48 * 64 * 64
+        x3 = F.pixel_unshuffle(x, 8)                            # out: batch * 192 * 32 * 32
         # Top subnetwork                                        suppose the start_channels = 32
         x3 = self.top1(x3)                                      # out: batch * 256 * 32 * 32
         x3 = self.top2(x3)                                      # out: batch * 256 * 32 * 32
