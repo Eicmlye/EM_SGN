@@ -76,3 +76,8 @@ def text_save(content, filename, mode = 'a'):
     for i in range(len(content)):
         file.write(str(content[i]) + '\n')
     file.close()
+
+## EM Modified
+def PSNR(mse): # RGB images, divided by 3 colors
+    return 20 * np.log10(255.0 / np.sqrt(mse)) / 3
+## end EM Modified

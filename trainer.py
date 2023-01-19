@@ -76,9 +76,6 @@ def Trainer(opt):
                     print('The trained model is successfully saved at iteration %d. ' % (iteration))
 
     ## EM Modified
-    def PSNR(mse): # RGB images, divided by 3 colors
-        return 20 * np.log10(255.0 / np.sqrt(mse)) / 3
-
     def save_loss_graph(opt, x, y, epoch, iteration):
         """
         Save the loss function curve vs. epochs or iterations.
@@ -128,7 +125,7 @@ def Trainer(opt):
         
         """
         if opt.loss_function == 'MSE':
-            y = PSNR(y)
+            y = utils.PSNR(y)
 
         save_loss_graph(opt, x, y, epoch, iteration)
         save_loss_value(opt, y)
@@ -170,7 +167,6 @@ def Trainer(opt):
         print('\n==== Epoch %d below ====\n' % (epoch + 1))
 
         for i, (noisy_img, img) in enumerate(dataloader):
-
             # To device
             noisy_img = noisy_img.cuda()
             img = img.cuda()
@@ -178,7 +174,7 @@ def Trainer(opt):
             # Train Generator
             optimizer_G.zero_grad()
 
-            # Forword propagation
+            # Forward propagation
             recon_img = generator(noisy_img)
             loss = loss_criterion(recon_img, img) ## EM Modified
 
@@ -194,7 +190,7 @@ def Trainer(opt):
 
             # Print log
             print("\r[Epoch %d/%d]\t[Batch %d/%d]\t[Recon Loss: %.4f]\tTime_left: %s" %
-                ((epoch + 1), opt.epochs, (i + 1), len(dataloader), PSNR(loss.item()), str(time_left)[:-7]))
+                ((epoch + 1), opt.epochs, (i + 1), len(dataloader), utils.PSNR(loss.item()), str(time_left)[:-7]))
 
             # Save model at certain epochs or iterations
             save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator)

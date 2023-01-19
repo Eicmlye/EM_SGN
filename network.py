@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-## EM COMMENT: official implementation has been provided by PyTorch
+## EM COMMENT: official implementation has been provided by PyTorch,
 ## so no longer need PixelUnshuffle.py here.
 ## See https://github.com/fangwei123456/PixelUnshuffle-pytorch for PixelUnShuffle.py
 ## See https://github.com/pytorch/pytorch/issues/2456 for PyTorch pixel_unshuffle request
@@ -17,7 +17,8 @@ def weights_init(net, init_type = 'normal', init_gain = 0.02):
         net (network)   -- network to be initialized
         init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
         init_gain (float)    -- scaling factor for normal, xavier and orthogonal
-    In our paper, we choose the default setting: zero mean Gaussian distribution with a standard deviation of 0.02
+    In our paper, we choose the default setting: 
+    zero mean Gaussian distribution with a standard deviation of 0.02
     """
     def init_func(m):
         classname = m.__class__.__name__

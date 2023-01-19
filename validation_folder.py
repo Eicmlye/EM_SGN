@@ -13,11 +13,6 @@ import dataset
 import utils
 
 if __name__ == "__main__":
-    ## EM Modified
-    def PSNR(mse): # RGB images, divided by 3 colors
-        return 20 * np.log10(255.0 / np.sqrt(mse)) / 3
-    ## end EM Modified
-
     # ----------------------------------------
     #        Initialize the parameters
     # ----------------------------------------
@@ -142,7 +137,7 @@ if __name__ == "__main__":
         r, g, b = cv2.split(show_img)
         show_img = cv2.merge([b, g, r])
         cv2.imshow('comparison.jpg', show_img)
-        cv2.waitKey(100)
+        ## EM deactivated # cv2.waitKey(100)
         ## EM Modified: Added time-based directory name
         cv2.imwrite(opt.dir_path + 'result_%04d.jpg' % (batch_idx + 801), show_img)
 
@@ -152,17 +147,13 @@ if __name__ == "__main__":
         save_path = opt.dir_path + 'validation_L1_Loss_value_Epoch.txt'
     else:
         save_path = opt.dir_path + 'validation_PSNR_value_Epoch.txt'
-        loss_data = PSNR(loss_data)
+        loss_data = utils.PSNR(loss_data)
+
     file = open(save_path, 'w')
 
     for picnum in range(len(loss_data)):
-        file.write(str(picnum + 1))
-        file.write('\t:\t')
-        file.write(str(loss_data[picnum]))
-        file.write('\n')
-
-    file.write('Avg\t:\t')
-    file.write(str(sum(loss_data) / len(loss_data)))
+        file.write(str(picnum + 1) + '\t:\t' + str(loss_data[picnum]) + '\n')
+    file.write('Avg\t:\t' + str(sum(loss_data) / len(loss_data)))
 
     file.close()
     ## end EM Modified
