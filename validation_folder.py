@@ -137,7 +137,7 @@ if __name__ == "__main__":
         r, g, b = cv2.split(show_img)
         show_img = cv2.merge([b, g, r])
         cv2.imshow('comparison.jpg', show_img)
-        ## EM deactivated # cv2.waitKey(100)
+        cv2.waitKey(100)
         ## EM Modified: Added time-based directory name
         cv2.imwrite(opt.dir_path + 'result_%04d.jpg' % (batch_idx + 801), show_img)
 
