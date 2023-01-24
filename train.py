@@ -40,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr_decreased', type = float, default = 0.00001, help = 'decreased learning rate at certain epoch')
     parser.add_argument('--num_workers', type = int, default = 4, help = 'number of cpu threads to use during batch generation')
     ## EM Modified
+    parser.add_argument('--start_epoch', type = int, default = 0, help = 'the training will start at this epoch')
     parser.add_argument('--loss_function', type = str, default = 'L1', help = 'loss function, L1 or MSE')
     ## end EM Modified
     # Initialization parameters
@@ -55,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('--baseroot', type = str, default = 'C:/Users/yzzha/Desktop/dataset/DIV2K/DIV2K_train_HR', help = 'images baseroot')
     parser.add_argument('--crop_size', type = int, default = 256, help = 'single patch size')
     ## EM Modified
+    parser.add_argument('--validroot', type = str, default = './DIV2K_valid_HR/', help = 'validation set for training')
     parser.add_argument('--crop_randomly', type = bool, default = True, help = 'activate random crop for RandomCrop() in dataset.py')
     ## end EM Modified
     parser.add_argument('--geometry_aug', type = bool, default = False, help = 'geometry augmentation (scaling)')
@@ -83,6 +85,7 @@ if __name__ == "__main__":
     # ----------------------------------------
 
     ## EM Modified
+    # debug settings
     opt.debug_str = '' # set to '' to turn OFF debug mode
     if opt.debug_str == '':
         print('Debug mode OFF. ')
@@ -90,25 +93,25 @@ if __name__ == "__main__":
         opt.crop_randomly = False
         print('Debug mode ON! ')
 
+    # training settings
     opt.epochs = 10
     opt.save_by_epoch = opt.epochs / 10 # or 1 to save every trained model
-    # opt.save_by_iter = opt.save_by_epoch * 100
     opt.iter_decreased = opt.epochs * 50
-
     opt.save_mode = 'epoch'
     opt.baseroot = './DIV2K_train_HR/'
+    opt.validroot = './DIV2K_valid_HR/'
     opt.loss_function = 'MSE'
 
-    ## if you are gonna continue train pre-trained model, activate this block
+    ## if you are gonna continue to train pre-trained model, activate this block
     """ # comment this line to activate the block below
     opt.pre_train = False
-    opt.load_name = './RunLocal/DataSaved/230114_0016_train/SGN_epoch1000_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/230123_135321_train/SGN_epoch2_bs8_mu0_sigma30.pth'
     
     #"""
     
     # create time-based directory name
     begin_time = time.localtime(time.time())
-    opt.dir_path = './RunLocal/' + opt.debug_str + '%02d%02d%02d_%02d%02d%02d_train/' % (begin_time.tm_year - 2000, begin_time.tm_mon, begin_time.tm_mday, begin_time.tm_hour, begin_time.tm_min, begin_time.tm_sec)
+    opt.dir_path = './RunLocal/' + opt.debug_str + '%02d%02d%02d_%02d%02d%02d_train%dEpochs/' % (begin_time.tm_year - 2000, begin_time.tm_mon, begin_time.tm_mday, begin_time.tm_hour, begin_time.tm_min, begin_time.tm_sec, opt.epochs)
     if not os.path.exists(opt.dir_path):
         os.makedirs(opt.dir_path)
     ## end EM Modified 

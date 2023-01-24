@@ -76,7 +76,7 @@ if __name__ == "__main__":
     else:
         pass # Unknown dataset, use opt.baseroot
 
-    opt.load_name = './RunLocal/DataSaved/230114_0016_train/SGN_epoch1000_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/230123_225954_train10Epochs/SGN_epoch4_bs8_mu0_sigma30.pth'
 
     opt.loss_function = 'MSE'
     ## end EM Modified
@@ -91,7 +91,8 @@ if __name__ == "__main__":
     # ----------------------------------------
     #                 Testing
     # ----------------------------------------
-    model = utils.create_generator(opt).cuda()
+    checkpoint = torch.load(opt.load_name)
+    model = utils.create_generator(opt, checkpoint).cuda()
 
     ## EM Modified
     loss_data = []
