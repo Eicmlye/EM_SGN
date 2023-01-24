@@ -13,11 +13,6 @@ import dataset
 import utils
 
 if __name__ == "__main__":
-    ## EM Modified
-    def PSNR(mse): # RGB images, divided by 3 colors
-        return 20 * np.log10(255.0 / np.sqrt(mse)) / 3
-    ## end EM Modified
-
     # ----------------------------------------
     #        Initialize the parameters
     # ----------------------------------------
@@ -70,8 +65,7 @@ if __name__ == "__main__":
         print('Debug mode ON! ')
 
 
-    # opt.load_name = './RunLocal/DataSaved/230113_2051_train/SGN_epoch50_bs8_mu0_sigma30.pth'
-    opt.load_name = './RunLocal/DataSaved/230114_0016_train/SGN_epoch1000_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/230123_225954_train10Epochs/SGN_epoch4_bs8_mu0_sigma30.pth'
 
     opt.loss_function = 'MSE'
     ## end EM Modified
@@ -86,7 +80,8 @@ if __name__ == "__main__":
     # ----------------------------------------
     #                 Testing
     # ----------------------------------------
-    model = utils.create_generator(opt).cuda()
+    checkpoint = torch.load(opt.load_name)
+    model = utils.create_generator(opt, checkpoint).cuda()
 
     ## EM Modified
     loss_data = []
@@ -152,17 +147,13 @@ if __name__ == "__main__":
         save_path = opt.dir_path + 'validation_L1_Loss_value_Epoch.txt'
     else:
         save_path = opt.dir_path + 'validation_PSNR_value_Epoch.txt'
-        loss_data = PSNR(loss_data)
+        loss_data = utils.PSNR(loss_data)
+
     file = open(save_path, 'w')
 
     for picnum in range(len(loss_data)):
-        file.write(str(picnum + 1))
-        file.write('\t:\t')
-        file.write(str(loss_data[picnum]))
-        file.write('\n')
-
-    file.write('Avg\t:\t')
-    file.write(str(sum(loss_data) / len(loss_data)))
+        file.write(str(picnum + 1) + '\t:\t' + str(loss_data[picnum]) + '\n')
+    file.write('Avg\t:\t' + str(sum(loss_data) / len(loss_data)))
 
     file.close()
     ## end EM Modified

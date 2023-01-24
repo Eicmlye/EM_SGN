@@ -36,3 +36,5 @@ This repository modifies the output format of the original one. Specifically,
 - In `validation_folder.py`, the modified part is similar to `train.py` and `trainer.py`. 
 
 - This `test.py` file, which is different from [the original one](https://github.com/zhaoyuzhi/Self-Guided-Network-for-Fast-Image-Denoising/blob/master/SGN/test.py), is derived from `validation_folder.py`. 
+
+- `PixelUnShuffle.py` is no longer needed, as PyTorch has officially implemented the method `pixel_unshuffle()` in `torch.nn.functional`.

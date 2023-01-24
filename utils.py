@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 import torchvision as tv
 import os
+## EM Modified
+import matplotlib.pyplot as plt
+## end EM Modified
 
 import network
 
@@ -20,21 +23,77 @@ def text_readlines(filename):
     file.close()
     return content
 
-def create_generator(opt):
+def create_generator(opt, checkpoint): ## EM ADDED (parameter)checkpoint
+    # Initialize the network
+    generator = network.SGN(opt)
     if opt.pre_train:
-        # Initialize the network
-        generator = network.SGN(opt)
         # Init the network
         network.weights_init(generator, init_type = opt.init_type, init_gain = opt.init_gain)
         print('Generator is created!')
     else:
-        # Initialize the network
-        generator = network.SGN(opt)
         # Load a pre-trained network
-        pretrained_net = torch.load(opt.load_name)
-        load_dict(generator, pretrained_net)
+        load_dict(generator, checkpoint['net'])
         print('Generator is loaded!')
     return generator
+
+## EM Modified
+def create_optimizer(opt, generator, checkpoint):
+    optimizer = torch.optim.Adam(generator.parameters(), lr = opt.lr, betas = (opt.b1, opt.b2), weight_decay = opt.weight_decay)
+    if not opt.pre_train:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    return optimizer
+    
+def save_loss_graph(opt, x, y):
+    """
+    Save the loss function curve vs. epochs or iterations.
+
+    """
+
+    if opt.multi_gpu == True:
+        pass
+    else:
+        if opt.save_mode == 'epoch':
+            # if epoch == opt.epochs: # Save graph only when training is finished
+                plt.plot(x, y)
+                plt.savefig(opt.dir_path + 'Loss_Epoch.png', dpi=300)
+                print('Loss-Epoch graph successfully saved. ')
+        else:
+            pass
+
+def save_loss_value(opt, y):
+    """
+    Save the loss value for all epochs.
+    
+    """
+    if opt.multi_gpu == True:
+        pass
+    else:
+        if opt.save_mode == 'epoch':
+            if opt.loss_function == 'L1':
+                save_path = opt.dir_path + 'L1_Loss_value_Epoch.txt'
+            else:
+                save_path = opt.dir_path + 'PSNR_value_Epoch.txt'
+            file = open(save_path, 'w')
+
+            for epoch in range(len(y)):
+                file.write(str(epoch + 1) + '\t:\t' + str(y[epoch]) + '\n')
+
+            file.close()
+            print('Loss value successfully saved. ')
+        else:
+            pass
+
+def save_loss_data(opt, x, y):
+    """
+    Save the loss graph and loss value for all epochs.
+    
+    """
+    if opt.loss_function == 'MSE':
+        y = PSNR(y)
+
+    save_loss_graph(opt, x, y)
+    save_loss_value(opt, y)
+## end EM Modified
     
 def load_dict(process_net, pretrained_net):
     # Get the dict from pre-trained network
@@ -76,3 +135,8 @@ def text_save(content, filename, mode = 'a'):
     for i in range(len(content)):
         file.write(str(content[i]) + '\n')
     file.close()
+
+## EM Modified
+def PSNR(mse): # RGB images, divided by 3 colors
+    return 20 * np.log10(255.0 / np.sqrt(mse)) / 3
+## end EM Modified

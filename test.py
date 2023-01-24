@@ -76,7 +76,7 @@ if __name__ == "__main__":
     else:
         pass # Unknown dataset, use opt.baseroot
 
-    opt.load_name = './RunLocal/DataSaved/230114_0016_train/SGN_epoch1000_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/230123_225954_train10Epochs/SGN_epoch4_bs8_mu0_sigma30.pth'
 
     opt.loss_function = 'MSE'
     ## end EM Modified
@@ -91,7 +91,8 @@ if __name__ == "__main__":
     # ----------------------------------------
     #                 Testing
     # ----------------------------------------
-    model = utils.create_generator(opt).cuda()
+    checkpoint = torch.load(opt.load_name)
+    model = utils.create_generator(opt, checkpoint).cuda()
 
     ## EM Modified
     loss_data = []
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         r, g, b = cv2.split(show_img)
         show_img = cv2.merge([b, g, r])
         cv2.imshow('comparison.jpg', show_img)
-        ## EM deactivate # cv2.waitKey(100)
+        cv2.waitKey(100)
         ## EM Modified: Added time-based directory name
         if opt.dataset == 'DIV2K':
             cv2.imwrite(opt.dir_path + 'result_%04d.jpg' % (img_idx + 801), show_img)

@@ -33,9 +33,11 @@ class RandomCrop(object):
             return img[self.h1: self.h2, self.w1: self.w2]
 
 class DenoisingDataset(Dataset):
-    def __init__(self, opt):                       # root: list ; transform: torch transform
+    def __init__(self, opt, rootpath = None):                # root: list ; transform: torch transform
+        if rootpath == None:
+            rootpath = opt.baseroot
         self.opt = opt
-        self.imglist = utils.get_files(opt.baseroot)
+        self.imglist = utils.get_files(rootpath)
 
     def __getitem__(self, index):
         ## read an image
@@ -89,9 +91,12 @@ class DenoisingDataset(Dataset):
         return len(self.imglist)
 
 class FullResDenoisingDataset(Dataset):
-    def __init__(self, opt):                        # root: list ; transform: torch transform
+    def __init__(self, opt, rootpath = None):                # root: list ; transform: torch transform
+        if rootpath == None:
+            rootpath = opt.baseroot
+        
         self.opt = opt
-        self.imglist = utils.get_files(opt.baseroot)
+        self.imglist = utils.get_files(rootpath)
 
     def __getitem__(self, index):
         ## read an image
