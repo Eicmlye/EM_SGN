@@ -65,7 +65,7 @@ if __name__ == "__main__":
         print('Debug mode ON! ')
 
 
-    opt.load_name = './RunLocal/230123_225954_train10Epochs/SGN_epoch4_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/230124_104845_train10Epochs/DSWN_epoch1_bs8_mu0_sigma30.pth'
 
     opt.loss_function = 'MSE'
     ## end EM Modified

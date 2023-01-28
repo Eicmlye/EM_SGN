@@ -76,7 +76,7 @@ if __name__ == "__main__":
     else:
         pass # Unknown dataset, use opt.baseroot
 
-    opt.load_name = './RunLocal/230123_225954_train10Epochs/SGN_epoch4_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/DataSaved/230125_092434_train100Epochs/SGN_best_epoch96_bs8_mu0_sigma30.pth'
 
     opt.loss_function = 'MSE'
     ## end EM Modified
@@ -166,13 +166,9 @@ if __name__ == "__main__":
     file = open(save_path, 'w')
 
     for picnum in range(len(loss_data)):
-        file.write(str(picnum + 1))
-        file.write('\t:\t')
-        file.write(str(loss_data[picnum]))
-        file.write('\n')
+        file.write(str(picnum + 1) + '\t:\t' + str(loss_data[picnum]) + '\n')
 
-    file.write('Avg\t:\t')
-    file.write(str(sum(loss_data) / len(loss_data)))
+    file.write('Avg\t:\t' + str(sum(loss_data) / len(loss_data)))
 
     file.close()
     ## end EM Modified

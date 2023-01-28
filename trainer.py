@@ -34,12 +34,29 @@ def Trainer(opt):
         sys.exit()
 
     ## EM Modified
+    # initialize loss graph
+    x = []
+    y = []
+    plt.title('Training Loss vs. Epochs')
+    plt.xlabel('Epochs')
+    if opt.loss_function == 'MSE':
+        plt.ylabel('PSNR')
+    else:
+        plt.ylabel('L1 Loss')
+    plt.ion() # activate interactive mode
+    
+    # save best loss value
+    best_loss = 10000
+
     # load checkpoint info
     if opt.pre_train:
         checkpoint = {}
     else:
         checkpoint = torch.load(opt.load_name)
         opt.start_epoch = checkpoint['epoch']
+        x = [i for i in range(1, opt.start_epoch)]
+        y = checkpoint['loss_data']
+        best_loss = checkpoint['best_loss']
     ## end EM Modified
 
     # Initialize SGN
@@ -63,7 +80,7 @@ def Trainer(opt):
                 param_group['lr'] = opt.lr_decreased
 
     # Save the model if pre_train == True
-    def save_model(opt, epoch, iteration, len_dataset, network, optimizer):
+    def save_model(opt, epoch, iteration, len_dataset, network, optimizer, y, best_loss):
         """Save the model at "checkpoint_interval" and its multiple"""
         if opt.multi_gpu == True:
             if opt.save_mode == 'epoch':
@@ -76,21 +93,21 @@ def Trainer(opt):
                     print('The trained model is successfully saved at iteration %d. ' % (iteration))
         else:
             if opt.save_mode == 'epoch':
-                checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict(), 'loss_data':y, 'best_loss':best_loss}
                 if (epoch % opt.save_by_epoch == 0) and (iteration % len_dataset == 0):
                     torch.save(checkpoint, opt.dir_path + 'SGN_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at epoch %d. ' % (epoch))
             if opt.save_mode == 'iter':
-                checkpoint = {'iteration':iteration, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                checkpoint = {'iteration':iteration, 'net':network.state_dict(), 'optimizer':optimizer.state_dict(), 'loss_data':y, 'best_loss':best_loss}
                 if iteration % opt.save_by_iter == 0:
                     torch.save(checkpoint, opt.dir_path + 'SGN_iter%d_bs%d_mu%d_sigma%d.pth' % (iteration, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at iteration %d. ' % (iteration))
 
-    def save_best_model(opt, loss, best_loss, epoch, network, optimizer):
+    def save_best_model(opt, loss, best_loss, epoch, network, optimizer, y):
         if epoch > opt.epochs / 2 and best_loss > loss:
             best_loss = loss
 
-            checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+            checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict(), 'loss_data':y, 'best_loss':best_loss}
             torch.save(checkpoint, opt.dir_path + 'SGN_best_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
             print('The best model is successfully updated. ')
         return best_loss
@@ -101,15 +118,16 @@ def Trainer(opt):
 
     # Define the dataset
     trainset = dataset.DenoisingDataset(opt)
-    validset = dataset.FullResDenoisingDataset(opt, opt.validroot)
-    print('The overall number of training images: ', len(trainset))
+    ## EM COMMENT: if FullRes is used, the validloader batch_size should set to 1. 
+    # validset = dataset.FullResDenoisingDataset(opt, opt.validroot)
+    validset = dataset.DenoisingDataset(opt, opt.validroot)
+    print('The overall number of images:', len(trainset))
 
     # Define the dataloader
     dataloader = DataLoader(trainset, batch_size = opt.batch_size, shuffle = True, num_workers = opt.num_workers, pin_memory = True)
+    ## EM COMMENT: if FullRes is used, the validloader batch_size should set to 1. 
+    # validloader = DataLoader(validset, batch_size = 1, pin_memory = True)
     validloader = DataLoader(validset, batch_size = 1, pin_memory = True)
-
-    # save best loss value
-    best_loss = 10000
 
     # ----------------------------------------
     #                 Training
@@ -117,19 +135,6 @@ def Trainer(opt):
 
     # Count start time
     prev_time = time.time()
-    
-    ## EM Modified
-    # initialize loss graph
-    x = []
-    y = []
-    plt.title('Training Loss vs. Epochs')
-    plt.xlabel('Epochs')
-    if opt.loss_function == 'MSE':
-        plt.ylabel('PSNR')
-    else:
-        plt.ylabel('L1 Loss')
-    plt.ion() # activate interactive mode
-    ## end EM Modified
 
     # For loop training
     for epoch in range(opt.start_epoch, opt.epochs):
@@ -164,9 +169,6 @@ def Trainer(opt):
             else:
                 print("\r[Epoch %d/%d]\t[Batch %d/%d]\t[Recon Loss: %.4f]\tTime_left: %s" %
                     ((epoch + 1), opt.epochs, (i + 1), len(dataloader), loss.item(), str(time_left)[:-7]))
-            
-            # Save model at certain epochs or iterations
-            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator, optimizer_G)
 
             # Learning rate decrease at certain epochs
             adjust_learning_rate(opt, (iters_done + 1), optimizer_G)
@@ -202,8 +204,11 @@ def Trainer(opt):
             print("Average PSNR for validation set: %.2f" % (utils.PSNR(loss_avg)))
         else:
             print("Average loss for validation set: %.2f" % (loss_avg))
+
         # Save model at certain epochs or iterations
-        best_loss = save_best_model(opt, loss_avg, best_loss, (epoch + 1), generator, optimizer_G)
+        save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator, optimizer_G, y, best_loss)
+        # update best loss and best model
+        best_loss = save_best_model(opt, loss_avg, best_loss, (epoch + 1), generator, optimizer_G, y)
 
         # save loss graph
         if opt.save_mode == 'epoch':

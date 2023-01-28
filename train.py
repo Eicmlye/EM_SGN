@@ -94,7 +94,7 @@ if __name__ == "__main__":
         print('Debug mode ON! ')
 
     # training settings
-    opt.epochs = 10
+    opt.epochs = 100
     opt.save_by_epoch = opt.epochs / 10 # or 1 to save every trained model
     opt.iter_decreased = opt.epochs * 50
     opt.save_mode = 'epoch'
@@ -102,10 +102,10 @@ if __name__ == "__main__":
     opt.validroot = './DIV2K_valid_HR/'
     opt.loss_function = 'MSE'
 
-    ## if you are gonna continue to train pre-trained model, activate this block
+    ## if you are gonna continue train pre-trained model, activate this block
     """ # comment this line to activate the block below
     opt.pre_train = False
-    opt.load_name = './RunLocal/230123_135321_train/SGN_epoch2_bs8_mu0_sigma30.pth'
+    opt.load_name = './RunLocal/DataSaved/230124_135613_train10Epochs/DSWN_best_epoch6_bs8_mu0_sigma30.pth'
     
     #"""
     
