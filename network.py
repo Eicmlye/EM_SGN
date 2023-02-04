@@ -47,6 +47,8 @@ def weights_init(net, init_type = 'normal', init_gain = 0.02):
 class SGN(nn.Module):
     def __init__(self, opt):
         super(SGN, self).__init__()
+        self.unshuffle = PixelUnShuffle(2).cuda()
+        self.shuffle = PixelShuffle(2).cuda()
         # Top subnetwork, K = 3
         self.top1 = Conv2dLayer(opt.in_channels * (4 ** 3), opt.start_channels * (2 ** 3), 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
         self.top2 = ResConv2dLayer(opt.start_channels * (2 ** 3), opt.start_channels * (2 ** 3), 3, 1, 1, pad_type = opt.pad, norm = opt.norm)
@@ -73,28 +75,28 @@ class SGN(nn.Module):
 
     def forward(self, x):
         # PixelUnShuffle                                        input: batch * 3 * 256 * 256
-        x1 = F.pixel_unshuffle(x, 2)                            # out: batch * 12 * 128 * 128
-        x2 = F.pixel_unshuffle(x, 4)                            # out: batch * 48 * 64 * 64
-        x3 = F.pixel_unshuffle(x, 8)                            # out: batch * 192 * 32 * 32
+        x1 = self.unshuffle(x)                                  # out: batch * 12 * 128 * 128
+        x2 = self.unshuffle(x1)                                 # out: batch * 48 * 64 * 64
+        x3 = self.unshuffle(x2)                                 # out: batch * 192 * 32 * 32
         # Top subnetwork                                        suppose the start_channels = 32
         x3 = self.top1(x3)                                      # out: batch * 256 * 32 * 32
         x3 = self.top2(x3)                                      # out: batch * 256 * 32 * 32
         x3 = self.top3(x3)                                      # out: batch * 256 * 32 * 32
-        x3 = F.pixel_shuffle(x3, 2)                             # out: batch * 64 * 64 * 64, ready to be concatenated
+        x3 = self.shuffle(x3)                                   # out: batch * 64 * 64 * 64, ready to be concatenated
         # Middle subnetwork
         x2 = self.mid1(x2)                                      # out: batch * 128 * 64 * 64
         x2 = torch.cat((x2, x3), 1)                             # out: batch * (128 + 64) * 64 * 64
         x2 = self.mid2(x2)                                      # out: batch * 128 * 64 * 64
         x2 = self.mid3(x2)                                      # out: batch * 128 * 64 * 64
         x2 = self.mid4(x2)                                      # out: batch * 128 * 64 * 64
-        x2 = F.pixel_shuffle(x2, 2)                             # out: batch * 32 * 128 * 128, ready to be concatenated
+        x2 = self.shuffle(x2)                                   # out: batch * 32 * 128 * 128, ready to be concatenated
         # Bottom subnetwork
         x1 = self.bot1(x1)                                      # out: batch * 64 * 128 * 128
         x1 = torch.cat((x1, x2), 1)                             # out: batch * (64 + 32) * 128 * 128
         x1 = self.bot2(x1)                                      # out: batch * 64 * 128 * 128
         x1 = self.bot3(x1)                                      # out: batch * 64 * 128 * 128
         x1 = self.bot4(x1)                                      # out: batch * 64 * 128 * 128
-        x1 = F.pixel_shuffle(x1, 2)                             # out: batch * 16 * 256 * 256, ready to be concatenated
+        x1 = self.shuffle(x1)                                   # out: batch * 16 * 256 * 256, ready to be concatenated
         # U-Net generator with skip connections from encoder to decoder
         x = self.main1(x)                                       # out: batch * 32 * 256 * 256
         x = torch.cat((x, x1), 1)                               # out: batch * (32 + 16) * 256 * 256

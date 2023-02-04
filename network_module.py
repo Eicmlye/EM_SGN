@@ -101,6 +101,30 @@ class ResConv2dLayer(nn.Module):
             out = self.activation(out)
         return out
 
+## EM ADDED
+class PixelUnShuffle(nn.Module):
+    def __init__(self, downscale_factor):
+        super(PixelUnShuffle, self).__init__()
+        self.downscale_factor = downscale_factor
+
+    def forward(self, input):
+        '''
+        input: batchSize * c * k*w * k*h
+        downscale_factor: k
+        batchSize * c * k*w * k*h -> batchSize * k*k*c * w * h
+        '''
+        return F.pixel_unshuffle(input, self.downscale_factor)
+        
+class PixelShuffle(nn.Module):
+    def __init__(self, upscale_factor):
+        super(PixelShuffle, self).__init__()
+        self.upscale_factor = upscale_factor
+
+    def forward(self, input):
+        return F.pixel_shuffle(input, self.upscale_factor)
+## end EM ADDED
+
+
 # ----------------------------------------
 #               Layer Norm
 # ----------------------------------------
