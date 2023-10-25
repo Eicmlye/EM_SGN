@@ -12,7 +12,7 @@ import network
 
 def create_generator(opt, checkpoint): ## EM ADDED (parameter)checkpoint
     # Initialize the network
-    generator = network.SGN(opt)
+    generator = network.HWDN(opt)
     if opt.pre_train:
         # Init the network
         network.weights_init(generator, init_type = opt.init_type, init_gain = opt.init_gain)
@@ -29,11 +29,30 @@ def create_generator(opt, checkpoint): ## EM ADDED (parameter)checkpoint
 ## EM Modified
 def get_time_based_directory(opt, mode = 'train'):
     begin_time = time.localtime(time.time())
-    
+    time_path = './RunLocal/%02d%02d%02d_%02d%02d%02d_' % (begin_time.tm_year - 2000, begin_time.tm_mon, begin_time.tm_mday, begin_time.tm_hour, begin_time.tm_min, begin_time.tm_sec)
+    dataset_path = ''
+
     if mode == 'train':
-        return './RunLocal/%02d%02d%02d_%02d%02d%02d_Tot%dEpo_bs%d_mu%d_sigma%d/' % (begin_time.tm_year - 2000, begin_time.tm_mon, begin_time.tm_mday, begin_time.tm_hour, begin_time.tm_min, begin_time.tm_sec, opt.epochs, opt.batch_size, opt.mu, opt.sigma)
+        dataset_path = 'Tot%dEpo_bs%d_mu%d_sigma%d/' % (opt.epochs, opt.batch_size, opt.mu, opt.sigma)
     elif mode == 'test':
-        return './RunLocal/%02d%02d%02d_%02d%02d%02d_test_' % (begin_time.tm_year - 2000, begin_time.tm_mon, begin_time.tm_mday, begin_time.tm_hour, begin_time.tm_min, begin_time.tm_sec) + 'CBSD68/'
+        dataset_path = 'test_'
+
+        if opt.baseroot == './CBSD68/original_png/':
+            dataset_path += 'CBSD68/'
+        elif opt.baseroot == './BSD68/':
+            dataset_path += 'BSD68/'
+        elif opt.baseroot == './Kodak24/':
+            dataset_path += 'Kodak24/'
+        elif opt.baseroot == './myTest/':
+            dataset_path += 'PureColor/'
+        elif opt.baseroot == './DIV2K_train_HR_forTest/':
+            dataset_path += 'DIV2Ktrain/'
+        elif opt.baseroot == './DIV2K_valid_HR_forTest/':
+            dataset_path += 'DIV2Kvalid/'
+        else:
+            raise ValueError('New test dataset. Please add save path to utils.py/get_time_based_directory()')
+
+    return time_path + dataset_path
 
 def build_directory(path, mode = 'train'):
     if not os.path.exists(path):
@@ -60,7 +79,7 @@ def create_optimizer(opt, generator, checkpoint):
         optimizer.load_state_dict(checkpoint['optimizer'])
     return optimizer
 
-def load_loss_data(load_loss_name):
+def load_loss_data(cur_epoch, load_loss_name):
     '''
     loss data file format: epoch_num    PSNR    SSIM
     '''
@@ -74,6 +93,9 @@ def load_loss_data(load_loss_name):
 
         y[0].append(eval(words[1]))
         y[1].append(eval(words[2]))
+
+        if len(y[0]) == cur_epoch:
+            break
 
     f.close()
 
@@ -130,6 +152,8 @@ def save_loss_graph(opt, y):
     plt.savefig(opt.dir_path + 'PSNR_SSIM_Epoch.png', dpi=300)
     print('Loss-Epoch graph successfully saved. ')
 
+    plt.close()
+
 def save_loss_value(opt, y):
     """
     Save the loss value for all epochs.
@@ -160,10 +184,10 @@ def save_loss_data(opt, y):
     save_loss_graph(opt, y)
     save_loss_value(opt, y)
 
+"""
 def PSNR(mse: float):
     return 20 * np.log10(255.0 / np.sqrt(mse))
 
-"""
 def SSIM(avg_img, avg_recon_img, var_img, var_recon_img, covar, max_pixel_value = 255):
     k1 = 0.01
     k2 = 0.03
@@ -173,7 +197,6 @@ def SSIM(avg_img, avg_recon_img, var_img, var_recon_img, covar, max_pixel_value 
     c2 = (k2 * L) ** 2
 
     return (2 * avg_img * avg_recon_img + c1) * (2 * covar + c2) / (avg_img ** 2 + avg_recon_img ** 2 + c1) / (var_img ** 2 + var_recon_img ** 2 + c2)
-"""
 
 def denormalize(img: torch.Tensor, recon_img: torch.Tensor):
     img = img.squeeze(0).cpu().numpy().transpose(1, 2, 0)
@@ -185,18 +208,19 @@ def denormalize(img: torch.Tensor, recon_img: torch.Tensor):
     recon_img = recon_img.astype(np.float32)
 
     return img, recon_img
+"""
 
 def PSNR_SSIM_img(img: torch.Tensor, recon_img: torch.Tensor):
     # for PSNR
         # notice that the dimension of img and noisy_img
         # is opt.batch_size * color_channel_num * opt.crop_size * opt.crop_size.
-    """batch_size = img.shape[0]"""
+    """
+    batch_size = img.shape[0]
     psnr = 0
     
     # for SSIM
     ssim = 0
-
-    """
+    
     # computation
     for i in range(batch_size):
         cache_img, cache_recon_img = denormalize(img[i], recon_img[i])
@@ -212,12 +236,16 @@ def PSNR_SSIM_img(img: torch.Tensor, recon_img: torch.Tensor):
         var_recon_img = np.sqrt(np.mean((cache_recon_img - avg_recon_img)**2))
         covar = np.mean((cache_img - avg_img) * (cache_recon_img - avg_recon_img))
         ssim += SSIM(avg_img, avg_recon_img, var_img, var_recon_img, covar, 255)
-        """
-    """
+        
     psnr /= batch_size
     ssim /= batch_size
     """
     # for piqa psnr
+    """
+    print(img.shape)
+    print(piqa.psnr.psnr((img + 1) * 128, (recon_img + 1) * 128, value_range=255).shape)
+    input()
+    """
     psnr = torch.mean(piqa.psnr.psnr((img + 1) * 128, (recon_img + 1) * 128, value_range=255)).item()
     # for pytorch_ssim
     ssim = pytorch_msssim.ssim((img + 1) * 128, (recon_img + 1) * 128).item()

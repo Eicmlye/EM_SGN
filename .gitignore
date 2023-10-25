@@ -7,4 +7,11 @@ RunLocal/
 # downloadable dataset
 DIV2K_train_HR/
 DIV2K_valid_HR/
+DIV2K_train_HR_forTest/
+DIV2K_valid_HR_forTest/
 CBSD68/
+BSD68/
+Kodak24/
+
+# my test dataset for pure color images
+myTest/
