@@ -1,27 +1,19 @@
-import os
 import random
 import numpy as np
 import cv2
 import math
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms
 
 import utils
 
 class RandomCrop(object):
-    def __init__(self, image_size, crop_size, randomly=True): ## EM Modified bool parameter
+    def __init__(self, image_size, crop_size):
         self.ch, self.cw = crop_size
         ih, iw = image_size
         
-        ## EM Modified
-        if randomly:
-            self.h1 = random.randint(0, ih - self.ch)
-            self.w1 = random.randint(0, iw - self.cw)
-        else: ## added fixed position
-            self.h1 = 0
-            self.w1 = 0
-        ## end EM Modified
+        self.h1 = random.randint(0, ih - self.ch)
+        self.w1 = random.randint(0, iw - self.cw)
 
         self.h2 = self.h1 + self.ch
         self.w2 = self.w1 + self.cw
@@ -63,7 +55,7 @@ class DenoisingDataset(Dataset):
                     H_out = int(math.floor(H_in * float(W_out) / float(W_in)))
             img = cv2.resize(img, (W_out, H_out))
         # random crop
-        cropper = RandomCrop(img.shape[:2], (self.opt.crop_size, self.opt.crop_size), self.opt.crop_randomly)
+        cropper = RandomCrop(img.shape[:2], (self.opt.crop_size, self.opt.crop_size))
         img = cropper(img)
         # random rotate and horizontal flip
         # according to paper, these two data augmentation methods are recommended
@@ -71,8 +63,9 @@ class DenoisingDataset(Dataset):
             rotate = random.randint(0, 3)
             if rotate != 0:
                 img = np.rot90(img, rotate)
-            if random.random() >= 0.5:
-                img = cv2.flip(img, flipCode = 0)
+            flip = random.randint(-1, 2) ## EM Modified
+            if flip != 2: ## EM COMMENT: original being random.random() >= 0.5
+                img = cv2.flip(img, flipCode = flip) ## EM COMMENT: original being flipCode = 0
         
         # add noise
         img = img.astype(np.float32) # RGB image in range [0, 255]

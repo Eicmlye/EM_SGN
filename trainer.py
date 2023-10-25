@@ -1,6 +1,5 @@
 import time
 import datetime
-import itertools
 import numpy as np
 ## EM Modified
 import matplotlib.pyplot as plt
@@ -8,8 +7,6 @@ import sys # for exit()
 ## end EM Modified
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-import torch.autograd as autograd
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 
@@ -25,21 +22,22 @@ def Trainer(opt):
     cudnn.benchmark = opt.cudnn_benchmark
 
     # Loss functions ## EM Added MSE
-    if opt.loss_function == 'L1':
-        loss_criterion = torch.nn.L1Loss().cuda()
-    elif opt.loss_function == 'MSE':
-        loss_criterion = torch.nn.MSELoss().cuda()
-    else:
-        print('Unknown loss criterion. ')
-        sys.exit()
+    loss_criterion = torch.nn.L1Loss().cuda()
 
     ## EM Modified
+    y = [[],[]]
+
     # load checkpoint info
     if opt.pre_train:
         checkpoint = {}
+        best_psnr = -1
+        best_ssim = -1
     else:
         checkpoint = torch.load(opt.load_name)
         opt.start_epoch = checkpoint['epoch']
+        best_psnr = checkpoint['best_psnr']
+        best_ssim = checkpoint['best_ssim']
+        y = utils.load_loss_data(opt.load_loss_name)
     ## end EM Modified
 
     # Initialize SGN
@@ -54,46 +52,70 @@ def Trainer(opt):
 
     # Optimizers
     optimizer_G = utils.create_optimizer(opt, generator, checkpoint)
+
+    del checkpoint
     
     # Learning rate decrease
     def adjust_learning_rate(opt, iteration, optimizer):
         # Set the learning rate to the specific value
-        if iteration >= opt.iter_decreased:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = opt.lr_decreased
+        if iteration >= opt.iter_decreased[0]:
+            for i in range(len(opt.iter_decreased) - 1):
+                if iteration >= opt.iter_decreased[i] and iteration < opt.iter_decreased[i + 1]:
+                    for param_group in optimizer.param_groups:
+                        param_group['lr'] = opt.lr_decreased[i]
+                    break
+            
+            if iteration >= opt.iter_decreased[-1]:
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = opt.lr_decreased[-1]
 
     # Save the model if pre_train == True
-    def save_model(opt, epoch, iteration, len_dataset, network, optimizer):
+    def save_model(opt, epoch, iteration, len_dataset, network, optimizer, best_psnr, best_ssim):
         """Save the model at "checkpoint_interval" and its multiple"""
         if opt.multi_gpu == True:
             if opt.save_mode == 'epoch':
                 if (epoch % opt.save_by_epoch == 0) and (iteration % len_dataset == 0):
-                    torch.save(network.module.state_dict(), opt.dir_path + 'SGN_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
+                    torch.save(network.module.state_dict(), opt.dir_path + 'models/SGN_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at epoch %d. ' % (epoch))
             if opt.save_mode == 'iter':
                 if iteration % opt.save_by_iter == 0:
-                    torch.save(network.module.state_dict(), opt.dir_path + 'SGN_iter%d_bs%d_mu%d_sigma%d.pth' % (iteration, opt.batch_size, opt.mu, opt.sigma))
+                    torch.save(network.module.state_dict(), opt.dir_path + 'models/SGN_iter%d_bs%d_mu%d_sigma%d.pth' % (iteration, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at iteration %d. ' % (iteration))
         else:
             if opt.save_mode == 'epoch':
-                checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                checkpoint = {'epoch':epoch, 'best_psnr':best_psnr, 'best_ssim':best_ssim, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
                 if (epoch % opt.save_by_epoch == 0) and (iteration % len_dataset == 0):
-                    torch.save(checkpoint, opt.dir_path + 'SGN_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
+                    torch.save(checkpoint, opt.dir_path + 'models/SGN_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at epoch %d. ' % (epoch))
             if opt.save_mode == 'iter':
-                checkpoint = {'iteration':iteration, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                checkpoint = {'iteration':iteration, 'best_psnr':best_psnr, 'best_ssim':best_ssim, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
                 if iteration % opt.save_by_iter == 0:
-                    torch.save(checkpoint, opt.dir_path + 'SGN_iter%d_bs%d_mu%d_sigma%d.pth' % (iteration, opt.batch_size, opt.mu, opt.sigma))
+                    torch.save(checkpoint, opt.dir_path + 'models/SGN_iter%d_bs%d_mu%d_sigma%d.pth' % (iteration, opt.batch_size, opt.mu, opt.sigma))
                     print('The trained model is successfully saved at iteration %d. ' % (iteration))
 
-    def save_best_model(opt, loss, best_loss, epoch, network, optimizer):
-        if epoch > opt.epochs / 2 and best_loss > loss:
-            best_loss = loss
+    def save_best_model(opt, psnr, ssim, best_psnr, best_ssim, epoch, network, optimizer):
+        if best_psnr < psnr and best_ssim < ssim and epoch >= opt.epochs / 10:
+            best_psnr = psnr
+            best_ssim = ssim
 
-            checkpoint = {'epoch':epoch, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
-            torch.save(checkpoint, opt.dir_path + 'SGN_best_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
-            print('The best model is successfully updated. ')
-        return best_loss
+            checkpoint = {'epoch':epoch, 'best_psnr':best_psnr, 'best_ssim':best_ssim, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+            torch.save(checkpoint, opt.dir_path + 'best_models/SGN_best_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
+            print('The best model is successfully updated. This model is the best one in both PSNR and SSIM. ')
+        else:
+            if best_psnr < psnr and epoch >= opt.epochs / 10:
+                best_psnr = psnr
+
+                checkpoint = {'epoch':epoch, 'best_psnr':best_psnr, 'best_ssim':best_ssim, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                torch.save(checkpoint, opt.dir_path + 'best_models/SGN_best_psnr_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
+                print('The best PSNR model is successfully updated. ')
+            if best_ssim < ssim and epoch >= opt.epochs / 10:
+                best_ssim = ssim
+
+                checkpoint = {'epoch':epoch, 'best_psnr':best_psnr, 'best_ssim':best_ssim, 'net':network.state_dict(), 'optimizer':optimizer.state_dict()}
+                torch.save(checkpoint, opt.dir_path + 'best_models/SGN_best_ssim_epoch%d_bs%d_mu%d_sigma%d.pth' % (epoch, opt.batch_size, opt.mu, opt.sigma))
+                print('The best SSIM model is successfully updated. ')
+
+        return best_psnr, best_ssim
 
     # ----------------------------------------
     #             Network dataset
@@ -101,15 +123,15 @@ def Trainer(opt):
 
     # Define the dataset
     trainset = dataset.DenoisingDataset(opt)
-    validset = dataset.FullResDenoisingDataset(opt, opt.validroot)
-    print('The overall number of training images: ', len(trainset))
+    # validset = dataset.FullResDenoisingDataset(opt, opt.validroot)
+    validset = dataset.DenoisingDataset(opt, opt.validroot)
+    len_valid = len(validset)
+    print('The overall number of images:', len(trainset))
 
     # Define the dataloader
     dataloader = DataLoader(trainset, batch_size = opt.batch_size, shuffle = True, num_workers = opt.num_workers, pin_memory = True)
     validloader = DataLoader(validset, batch_size = 1, pin_memory = True)
-
-    # save best loss value
-    best_loss = 10000
+    del trainset, validset
 
     # ----------------------------------------
     #                 Training
@@ -117,19 +139,7 @@ def Trainer(opt):
 
     # Count start time
     prev_time = time.time()
-    
-    ## EM Modified
-    # initialize loss graph
-    x = []
-    y = []
-    plt.title('Training Loss vs. Epochs')
-    plt.xlabel('Epochs')
-    if opt.loss_function == 'MSE':
-        plt.ylabel('PSNR')
-    else:
-        plt.ylabel('L1 Loss')
-    plt.ion() # activate interactive mode
-    ## end EM Modified
+    validation_time = datetime.timedelta(seconds=30)
 
     # For loop training
     for epoch in range(opt.start_epoch, opt.epochs):
@@ -145,28 +155,25 @@ def Trainer(opt):
 
             # Forward propagation
             recon_img = generator(noisy_img)
+            del noisy_img
+
             loss = loss_criterion(recon_img, img) ## EM Modified
+            psnr_data, ssim_data = utils.PSNR_SSIM_img(img, recon_img)
+            del img, recon_img
 
             # Overall Loss and optimize
             loss.backward()
+            del loss
             optimizer_G.step()
 
             # Determine approximate time left
             iters_done = epoch * len(dataloader) + i
             iters_left = opt.epochs * len(dataloader) - iters_done
-            time_left = datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
+            time_left = validation_time * (opt.epochs - epoch) + datetime.timedelta(seconds = iters_left * (time.time() - prev_time))
             prev_time = time.time()
 
             # Print log
-            if (opt.loss_function == 'MSE'):
-                print("\r[Epoch %d/%d]\t[Batch %d/%d]\t[Recon Loss: %.4f]\tTime_left: %s" %
-                    ((epoch + 1), opt.epochs, (i + 1), len(dataloader), utils.PSNR(loss.item()), str(time_left)[:-7]))
-            else:
-                print("\r[Epoch %d/%d]\t[Batch %d/%d]\t[Recon Loss: %.4f]\tTime_left: %s" %
-                    ((epoch + 1), opt.epochs, (i + 1), len(dataloader), loss.item(), str(time_left)[:-7]))
-            
-            # Save model at certain epochs or iterations
-            save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator, optimizer_G)
+            print("\r[Epoch %d/%d]\t[Batch %d/%d]\t[Recon PSNR: %.4f]\t[Recon SSIM: %.4f]\tTime_left: %s" % ((epoch + 1), opt.epochs, (i + 1), len(dataloader), psnr_data, ssim_data, str(time_left)[:-7]))
 
             # Learning rate decrease at certain epochs
             adjust_learning_rate(opt, (iters_done + 1), optimizer_G)
@@ -174,42 +181,50 @@ def Trainer(opt):
         ## EM Modified
         # validation
         print('---- Validation ----')
-        print('The overall number of validation images: ', len(validset))
+        print('The overall number of validation images: ', len_valid)
 
-        loss_avg = 0
+        psnr_avg = 0
+        ssim_avg = 0
 
-        for j, (noisy_valimg, valimg) in enumerate(validloader):
+        for j, (noisy_img, img) in enumerate(validloader):
             # To device
-            noisy_valimg = noisy_valimg.cuda()
-            valimg = valimg.cuda()
+            noisy_img = noisy_img.cuda()
+            img = img.cuda()
 
             # Forward propagation
             with torch.no_grad():
-                recon_valimg = generator(noisy_valimg)
-            valloss = loss_criterion(recon_valimg, valimg)
-            loss_avg += valloss.item()
+                recon_img = generator(noisy_img)
+            del noisy_img
+            
+            loss = loss_criterion(recon_img, img)
+            psnr_data, ssim_data = utils.PSNR_SSIM_img(img, recon_img)
+            del img, recon_img, loss
+
+            psnr_avg += psnr_data
+            ssim_avg += ssim_data
 
             # Print log
-            if (opt.loss_function == 'MSE'):
-                print("\rEpoch %d\t[Image %d/%d]\t[Recon Loss: %.4f]" %
-                    ((epoch + 1), (j + 1), len(validloader), utils.PSNR(valloss.item())))
-            else:
-                print("\rEpoch %d\t[Image %d/%d]\t[Recon Loss: %.4f]" %
-                    ((epoch + 1), (j + 1), len(validloader), valloss.item()))
+            print("\rEpoch %d\t[Image %d/%d]\t[Recon PSNR: %.4f]\t[Reson SSIM: %.4f]" %
+                    ((epoch + 1), (j + 1), len(validloader), psnr_data, ssim_data))
 
-        loss_avg /= len(validloader)
-        if (opt.loss_function == 'MSE'):
-            print("Average PSNR for validation set: %.2f" % (utils.PSNR(loss_avg)))
-        else:
-            print("Average loss for validation set: %.2f" % (loss_avg))
-        # Save model at certain epochs or iterations
-        best_loss = save_best_model(opt, loss_avg, best_loss, (epoch + 1), generator, optimizer_G)
+        psnr_avg /= len(validloader)
+        ssim_avg /= len(validloader)
+        print("Average PSNR for validation set: %.2f" % (psnr_avg))
+        print("Average SSIM for validation set: %.4f" % (ssim_avg))
 
         # save loss graph
         if opt.save_mode == 'epoch':
-            x.append(epoch + 1)
-            y.append(loss_avg)
-            utils.save_loss_data(opt, x, y)
+            y[0].append(psnr_avg)
+            y[1].append(ssim_avg)
+            utils.save_loss_data(opt, y)
         else:
             pass
+
+        # update best loss and best model
+        best_psnr, best_ssim = save_best_model(opt, psnr_avg, ssim_avg, best_psnr, best_ssim, (epoch + 1), generator, optimizer_G)
+        # Save model at certain epochs or iterations
+        save_model(opt, (epoch + 1), (iters_done + 1), len(dataloader), generator, optimizer_G, best_psnr, best_ssim)
+        
+        validation_time = datetime.timedelta(seconds=time.time() - prev_time)
+        prev_time = time.time()
         ## end EM Modified
